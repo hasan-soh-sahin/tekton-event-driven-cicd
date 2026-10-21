@@ -1,0 +1,12 @@
+{
+  "object_kind": "push",
+  "event_name": "push",
+  "ref": "refs/heads/__BRANCH__",
+  "after": "595483fcd9e25fe02e322e423f9fc019b64d369f",
+  "checkout_sha": "595483fcd9e25fe02e322e423f9fc019b64d369f",
+  "project": {
+    "name": "__REPO__",
+    "path_with_namespace": "data-platform/__REPO__",
+    "git_http_url": "https://gitlab.example.com/data-platform/__REPO__.git"
+  }
+}

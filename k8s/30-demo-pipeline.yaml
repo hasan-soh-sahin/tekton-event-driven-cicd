@@ -1,0 +1,128 @@
+# Safe learning pipeline: no Git clone, registry access or Airflow credentials needed.
+# Shows the EXACT same Trigger / Binding / Template parameter path.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: inspect-webhook-params
+  namespace: data-platform-ci
+spec:
+  params:
+    - name: app-name
+      type: string
+    - name: git-url
+      type: string
+    - name: git-revision
+      type: string
+  steps:
+    - name: print
+      image: alpine:3.20
+      env:
+        - name: APP_NAME
+          value: $(params.app-name)
+        - name: GIT_URL
+          value: $(params.git-url)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+      script: |
+        #!/bin/sh
+        set -eu
+        printf 'app-name=%s\ngit-url=%s\ngit-revision=%s\n' "$APP_NAME" "$GIT_URL" "$GIT_REVISION"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: calculate-image-tag
+  namespace: data-platform-ci
+spec:
+  description: Demonstration tag output. No live Harbor access is performed.
+  params:
+    - name: image-name
+      type: string
+  results:
+    - name: tag
+    - name: image
+  steps:
+    - name: generate
+      image: alpine:3.20
+      env:
+        - name: IMAGE_NAME
+          value: $(params.image-name)
+      script: |
+        #!/bin/sh
+        set -eu
+        TAG=0.0.11
+        printf '%s' "$TAG" > "$(results.tag.path)"
+        printf '%s:%s' "$IMAGE_NAME" "$TAG" > "$(results.image.path)"
+        echo "DEMO ONLY: calculated image=$IMAGE_NAME:$TAG"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: simulate-build-and-airflow
+  namespace: data-platform-ci
+spec:
+  params:
+    - name: image
+      type: string
+    - name: airflow-variable
+      type: string
+  steps:
+    - name: output
+      image: alpine:3.20
+      env:
+        - name: IMAGE
+          value: $(params.image)
+        - name: VARIABLE
+          value: $(params.airflow-variable)
+      script: |
+        #!/bin/sh
+        set -eu
+        echo "DEMO ONLY: would build and push $IMAGE"
+        echo "DEMO ONLY: would update Airflow variable $VARIABLE to $IMAGE"
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: container-build-pipeline
+  namespace: data-platform-ci
+spec:
+  params:
+    - name: git-url
+      type: string
+    - name: git-revision
+      type: string
+    - name: app-name
+      type: string
+    - name: image-name
+      type: string
+    - name: airflow-variable
+      type: string
+  results:
+    - name: image
+      value: $(tasks.calculate-image-tag.results.image)
+  tasks:
+    - name: inspect
+      taskRef:
+        name: inspect-webhook-params
+      params:
+        - name: app-name
+          value: $(params.app-name)
+        - name: git-url
+          value: $(params.git-url)
+        - name: git-revision
+          value: $(params.git-revision)
+    - name: calculate-image-tag
+      taskRef:
+        name: calculate-image-tag
+      params:
+        - name: image-name
+          value: $(params.image-name)
+    - name: simulate-publish
+      runAfter: [inspect]
+      taskRef:
+        name: simulate-build-and-airflow
+      params:
+        - name: image
+          value: $(tasks.calculate-image-tag.results.image)
+        - name: airflow-variable
+          value: $(params.airflow-variable)

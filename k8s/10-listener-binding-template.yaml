@@ -1,0 +1,60 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: image-build-listener
+  namespace: data-platform-ci
+spec:
+  serviceAccountName: image-build-el-sa
+  labelSelector:
+    matchLabels:
+      ci.example.com/listener: image-build
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: gitlab-push
+  namespace: data-platform-ci
+spec:
+  params:
+    - name: git-url
+      value: $(body.project.git_http_url)
+    - name: git-revision
+      value: $(body.checkout_sha)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: image-build-template
+  namespace: data-platform-ci
+spec:
+  params:
+    - name: git-url
+    - name: git-revision
+    - name: app-name
+    - name: image-name
+    - name: airflow-variable
+    - name: pipeline
+      default: container-build-pipeline
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: $(tt.params.app-name)-
+        labels:
+          ci.example.com/app: $(tt.params.app-name)
+      spec:
+        pipelineRef:
+          name: $(tt.params.pipeline)
+        taskRunTemplate:
+          serviceAccountName: pipeline
+        params:
+          - name: git-url
+            value: $(tt.params.git-url)
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: app-name
+            value: $(tt.params.app-name)
+          - name: image-name
+            value: $(tt.params.image-name)
+          - name: airflow-variable
+            value: $(tt.params.airflow-variable)

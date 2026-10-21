@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-platform-ci
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: image-build-el-sa
+  namespace: data-platform-ci
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eventlistener-roles
+  namespace: data-platform-ci
+subjects:
+  - kind: ServiceAccount
+    name: image-build-el-sa
+    namespace: data-platform-ci
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-triggers-eventlistener-roles
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: data-platform-ci-eventlistener-clusterroles
+subjects:
+  - kind: ServiceAccount
+    name: image-build-el-sa
+    namespace: data-platform-ci
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tekton-triggers-eventlistener-clusterroles
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline
+  namespace: data-platform-ci

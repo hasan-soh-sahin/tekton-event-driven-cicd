@@ -1,0 +1,38 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: Trigger
+metadata:
+  name: customer-scoring
+  namespace: data-platform-ci
+  labels:
+    ci.example.com/listener: image-build
+spec:
+  interceptors:
+    - ref:
+        kind: ClusterInterceptor
+        name: gitlab
+      params:
+        - name: secretRef
+          value:
+            secretName: gitlab-webhook-secret
+            secretKey: secretToken
+        - name: eventTypes
+          value: ["Push Hook"]
+    - ref:
+        kind: ClusterInterceptor
+        name: cel
+      params:
+        - name: filter
+          value: >-
+            body.project.path_with_namespace == 'data-platform/customer-scoring'
+            && body.ref == 'refs/heads/main'
+            && body.after != '0000000000000000000000000000000000000000'
+  bindings:
+    - ref: gitlab-push
+    - name: app-name
+      value: customer-scoring
+    - name: image-name
+      value: harbor.example.com/data-platform/customer-scoring
+    - name: airflow-variable
+      value: CUSTOMER_SCORING_IMAGE
+  template:
+    ref: image-build-template

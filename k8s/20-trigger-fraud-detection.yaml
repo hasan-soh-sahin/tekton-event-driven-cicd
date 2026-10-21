@@ -1,0 +1,38 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: Trigger
+metadata:
+  name: fraud-detection
+  namespace: data-platform-ci
+  labels:
+    ci.example.com/listener: image-build
+spec:
+  interceptors:
+    - ref:
+        kind: ClusterInterceptor
+        name: gitlab
+      params:
+        - name: secretRef
+          value:
+            secretName: gitlab-webhook-secret
+            secretKey: secretToken
+        - name: eventTypes
+          value: ["Push Hook"]
+    - ref:
+        kind: ClusterInterceptor
+        name: cel
+      params:
+        - name: filter
+          value: >-
+            body.project.path_with_namespace == 'data-platform/fraud-detection'
+            && body.ref == 'refs/heads/main'
+            && body.after != '0000000000000000000000000000000000000000'
+  bindings:
+    - ref: gitlab-push
+    - name: app-name
+      value: fraud-detection
+    - name: image-name
+      value: harbor.example.com/data-platform/fraud-detection
+    - name: airflow-variable
+      value: FRAUD_DETECTION_IMAGE
+  template:
+    ref: image-build-template
